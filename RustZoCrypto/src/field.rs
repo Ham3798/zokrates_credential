@@ -13,7 +13,7 @@ fn inv(a: &BigInt) -> BigInt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fq {
-    n: BigInt,
+    pub n: BigInt,
 }
 
 impl Fq {
@@ -22,7 +22,7 @@ impl Fq {
         let n = val.into() % &modulus;
         Fq { n }
     }
-
+    
     pub fn one() -> Fq {
         Fq::new(BigInt::one())
     }
