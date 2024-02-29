@@ -3,7 +3,7 @@ extern crate num_traits;
 
 use num_bigint::BigInt;
 use num_traits::{One, Zero};
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 const FIELD_MODULUS: &str = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
 
@@ -12,22 +12,22 @@ fn inv(a: &BigInt) -> BigInt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Fq {
+pub struct Fq {
     n: BigInt,
 }
 
 impl Fq {
-    fn new<T: Into<BigInt>>(val: T) -> Fq {
+    pub fn new<T: Into<BigInt>>(val: T) -> Fq {
         let modulus = BigInt::parse_bytes(FIELD_MODULUS.as_bytes(), 10).unwrap();
         let n = val.into() % &modulus;
         Fq { n }
     }
 
-    fn one() -> Fq {
+    pub fn one() -> Fq {
         Fq::new(BigInt::one())
     }
 
-    fn zero() -> Fq {
+    pub fn zero() -> Fq {
         Fq::new(BigInt::zero())
     }
 }
@@ -62,5 +62,15 @@ impl Div for Fq {
 
     fn div(self, other: Fq) -> Fq {
         Fq::new(self.n * inv(&other.n))
+    }
+}
+
+impl Neg for Fq {
+    type Output = Fq;
+
+    fn neg(self) -> Self::Output {
+        let modulus = BigInt::parse_bytes(FIELD_MODULUS.as_bytes(), 10).unwrap();
+        let neg_n = (modulus.clone() - self.n) % &modulus;
+        Fq::new(neg_n)
     }
 }
