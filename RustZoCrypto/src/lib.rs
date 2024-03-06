@@ -4,7 +4,4 @@
 mod babyjubjub;
 mod eddsa;
 mod utils;
-
-pub use babyjubjub::*;
-pub use eddsa::*;
-pub use utils::*;
+mod field;

@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+lazy_static = "1.4.0"
+num-bigint = "0.4"
+num-traits = "0.2"
+sha2 = "0.9"
+rand = "0.8"
+hex = "0.4"
