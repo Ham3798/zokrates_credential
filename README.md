@@ -55,6 +55,7 @@ pip3 install zokrates_pycrypto
 ```
 
 - Execute the tests in issuer.rs, prover.rs, and verifier.rs to perform the credential issuance, proof generation, and verification process.
+- The order of execution is to run the test cases sequentially in the order of issuer, verifier, and prover.
 
 ## License
 This project is licensed under the GPL-3.0 license - see the LICENSE file for details.
