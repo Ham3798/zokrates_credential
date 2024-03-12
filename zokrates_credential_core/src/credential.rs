@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Credential {
-    pub claim: Claims
+    pub claim: Claims,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
