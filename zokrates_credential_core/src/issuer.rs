@@ -1,18 +1,54 @@
 #[cfg(test)]
 mod tests {
-    use crate::credential::{credentialSubject_sample, credential_sample};
+    use crate::credential::{AlumniOf, Claims, CredentialIssuer, CredentialSubject};
+    use chrono::{DateTime, Duration, Utc};
     use serde_json::{json, to_string_pretty, to_value, Map, Value};
     use sha2::{Digest, Sha256};
     use std::{
-        fs::{self, File},
-        io::{BufReader, Write},
-        path::Path,
+        fmt::format, fs::{self, File}, io::{BufReader, Write}, path::Path
     };
 
-    #[test]
-    fn create_credential() {
-        let credential = credential_sample();
-        let credential_subject = credentialSubject_sample();
+    fn create_credential(credential_id: &str, name: &str, age: u8, student_number: &str, department: &str) {
+        let credential = Claims {
+            context: vec![
+                "https://www.w3.org/2018/credentials/v1".to_owned(),
+                "https://www.example.org/examples/v1".to_owned(),
+            ],
+            id: format!("http://chungnam.ac.kr/credentials/{}", credential_id).to_owned(),
+            credential_type: vec![
+                "VerifiableCredential".to_owned(),
+                "AlumniCredential".to_owned(),
+            ],
+            issuer: CredentialIssuer {
+                id: "https://infosec.chungnam.ac.kr".to_owned(),
+                name: "Chungnam National University Information Security Lab".to_owned(),
+            },
+            issuance_date: Utc::now(),
+            credential_subject: CredentialSubject {
+                id: "did:example:abcdef1234567890".to_owned(),
+                name: name.to_owned(),
+                age,
+                student_number: student_number.to_owned(),
+                alumni_of: AlumniOf {
+                    id: "did:example:c34fb4561237890".to_owned(),
+                    name: "Chungnam National University".to_owned(),
+                    department: department.to_owned(),
+                },
+            },
+            exp: (Utc::now() + Duration::days(90)).timestamp(),
+        };
+
+        let credential_subject = CredentialSubject {
+            id: "did:example:abcdef1234567890".to_owned(),
+            name: name.to_owned(),
+            age,
+            student_number: student_number.to_owned(),
+            alumni_of: AlumniOf {
+                id: "did:example:c34fb4561237890".to_owned(),
+                name: "Chungnam National University".to_owned(),
+                department: department.to_owned(),
+            },
+        };
 
         let credential_serialized = to_value(&credential).expect("Failed to serialize credential");
         let credential_subject_serialized =
@@ -79,15 +115,21 @@ mod tests {
         // JSON 객체를 문자열로 변환 (가독성을 위해 예쁘게 인쇄)
         let json_hashes_pretty = to_string_pretty(&hashes).expect("Failed to serialize hashes");
 
+        // 디렉토리 생성
+        let dir_path = format!("./zok/issuer/{}", credential_id);
+        fs::create_dir_all(&dir_path).expect("Failed to create directory");
+
         // 파일에 JSON 데이터 쓰기
-        let mut file = File::create("./zok/issuer/credential.json").expect("Failed to create file");
+        let file_path = format!("./zok/issuer/{}/credential.json", credential_id);
+        let mut file = File::create(file_path).expect("Failed to create file");
         file.write_all(json_hashes_pretty.as_bytes())
             .expect("Failed to write to file");
     }
 
-    fn load_credential_hash() -> Vec<String> {
+    fn load_credential_hash(credential_id: &str) -> Vec<String> {
         // 파일로부터 JSON 데이터 읽기
-        let data = fs::read_to_string("./zok/issuer/credential.json").expect("Unable to read file");
+        let file_path = format!("./zok/issuer/{}/credential.json", credential_id);
+        let data = fs::read_to_string(file_path).expect("Unable to read file");
 
         // 읽은 데이터를 JSON으로 파싱
         let hashes: Map<String, Value> = serde_json::from_str(&data).expect("Unable to parse JSON");
@@ -105,8 +147,7 @@ mod tests {
 
     use std::process::Command;
 
-    #[test]
-    fn create_witness_for_eddsa_signature_memo() {
+    fn compile_create_hash_zok() {
         // `zokrates compile` 명령어 실행
         let compile_status = Command::new("zokrates")
             .current_dir("./zok/issuer") // 작업 디렉토리 설정
@@ -117,8 +158,11 @@ mod tests {
             .expect("Failed to execute zokrates compile");
         assert!(compile_status.success()); // 컴파일 성공 확인
 
+    }
+
+    fn create_witness_for_eddsa_signature_memo(credential_id: &str) {
         // credential_hash_param load
-        let credential_hash_param = load_credential_hash();
+        let credential_hash_param = load_credential_hash(credential_id);
         let mut args = vec!["compute-witness".into(), "-a".into()];
         args.extend(credential_hash_param.into_iter());
         args.push("--verbose".into());
@@ -156,8 +200,7 @@ mod tests {
         values
     }
 
-    #[test]
-    fn create_signature_and_pk() {
+    fn create_signature_and_pk(credential_id: &str) {
         // witness 값 로드
         let witness_values = load_zokrates_witness();
 
@@ -179,19 +222,45 @@ mod tests {
 
         // 실행 성공 여부 확인
         assert!(output.status.success(), "Python script execution failed");
+
+        Issuance_to_prover(credential_id);
     }
 
     // 파일 이동을 위한 함수
-    fn move_file_to_prover(file_name: &str) {
+    fn move_file_to_credential_id_folder(credential_id: &str, file_name: &str) {
         let source_path = format!("./zok/issuer/{}", file_name);
-        let destination_path = format!("./zok/prover/{}", file_name);
+        let destination_path = format!("./zok/issuer/{}/{}", credential_id, file_name);
 
         fs::rename(&source_path, &destination_path)
             .expect(&format!("Failed to move {} to ./zok/prover", file_name));
     }
-    #[test]
-    fn Issuance_to_prover() {
-        move_file_to_prover("signature");
-        move_file_to_prover("credential.json");
+
+    fn Issuance_to_prover(credential_id: &str) {
+        move_file_to_credential_id_folder(credential_id, "signature");
+        move_file_to_credential_id_folder(credential_id, "credential.json");
     }
+
+    fn create_signature(credential_id: &str) {
+        create_witness_for_eddsa_signature_memo(credential_id);
+        create_signature_and_pk(credential_id);
+        Issuance_to_prover(credential_id);
+    }
+
+    #[test]
+    fn create_credential_test() {
+        create_credential("3732", "Socrates", 30, "201902769", "Information Security");
+
+    }
+
+    #[test]
+    fn compile_create_hash_zok_test() {
+        compile_create_hash_zok();
+    }
+
+    #[test]
+    fn create_signature_test() {
+        create_signature("3732");
+    }
+   
+    
 }
