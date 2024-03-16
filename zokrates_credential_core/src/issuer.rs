@@ -8,16 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// 경로를 조작하기 위한 함수를 생성합니다. 이를 통해 반복되는 경로 생성 로직을 간소화할 수 있습니다.
-fn create_path(root: &str, parts: &[&str]) -> PathBuf {
-    let mut path = PathBuf::from(root);
-    for part in parts {
-        path.push(part);
-    }
-    path
-}
-
-pub fn create_credential(
+pub fn create_claim(
     credential_id: &str,
     name: &str,
     age: u8,
@@ -158,13 +149,115 @@ fn load_credential_hash(credential_id: &str) -> Vec<String> {
 
 use std::process::Command;
 
-pub fn compile_create_hash_zok() {
-    // `zokrates compile` 명령어 실행
+pub fn setup() {
+    // `./zok` 폴더와 `./zok/issuer` 폴더 생성
+    fs::create_dir_all("./zok/issuer").expect("Failed to create directories");
+
+    // 가상 환경 생성
+    let issuer_dir = Path::new("./zok/issuer");
+
+    // `./zok/issuer/` 디렉토리에서 가상 환경 생성
+    let venv_creation = Command::new("python3")
+        .args(&["-m", "venv", "myvenv"])
+        .current_dir(&issuer_dir) // 현재 작업 디렉토리 설정
+        .status()
+        .expect("Failed to create virtual environment");
+
+    assert!(venv_creation.success(), "Virtual environment creation failed");
+    
+    // `./zok/issuer/myvenv` 가상 환경에 'zokrates_pycrypto' 패키지 설치
+    let pip_install = Command::new("./myvenv/bin/pip")
+        .args(&["install", "zokrates_pycrypto"])
+        .current_dir(&issuer_dir) // 현재 작업 디렉토리 설정
+        .status()
+        .expect("Failed to install zokrates_pycrypto");
+
+    assert!(pip_install.success(), "Package installation failed");
+
+    // `./zok/create_hash.zok` 파일에 ZoKrates 컨트랙트 작성
+    let zok_contract_path = Path::new("./zok/create_hash.zok");
+    let mut file = File::create(&zok_contract_path).expect("Failed to create zok contract file");
+    writeln!(file, r#"import "hashes/sha256/512bitPacked" as sha256packed;
+import "utils/pack/u32/nonStrictUnpack256" as unpack256u;
+
+def main(private field context_hash, private field age, private field alumni_of_hash, private field credential_subject_hash, private field exp_hash, private field id_hash, private field issuance_date_hash, private field issuer_hash, private field name_hash, private field student_number_hash, private field type_hash) -> (u32[8], u32[8]) {{
+    // 첫 번째 4개 입력에 대한 해시 계산
+    field[2] first_hash = sha256packed([context_hash, age, alumni_of_hash, credential_subject_hash]);
+
+    // 두 번째 4개 입력에 대한 해시 계산
+    field[2] second_hash = sha256packed([exp_hash, id_hash, issuance_date_hash, issuer_hash]);
+
+    // 세 번째 3개 입력 및 첫 번째 해시의 첫 요소에 대한 해시 계산
+    field[2] third_hash = sha256packed([name_hash, student_number_hash, type_hash, first_hash[0]]);
+
+    // 첫 번째, 두 번째, 세 번째 해시 결과의 두 번째 요소들을 다시 해시하여 최종 해시를 계산
+    field[2] final_hash = sha256packed([second_hash[1], third_hash[1], third_hash[0], first_hash[1]]);
+
+    // final_hash의 각 field 요소를 u32[8] 타입으로 변환
+    u32[8] M0 = unpack256u(final_hash[0]);
+    u32[8] M1 = unpack256u(final_hash[1]);
+
+    return (M0, M1);
+}}"#).expect("Failed to write zok contract");
+
+    // `./zok/create_signature.py` 파일 생성
+    let zok_contract_path = Path::new("./zok/issuer/create_signature.py");
+    let mut file = File::create(&zok_contract_path).expect("Failed to create create_signature.py");
+    writeln!(file, r#"# 조크라테스 pycrypto 사용 중이나, RustZoCrypto 마이그레이션 후 제거 예정
+
+import hashlib
+import json
+from zokrates_pycrypto.eddsa import PrivateKey, PublicKey
+from zokrates_pycrypto.field import FQ
+from zokrates_pycrypto.utils import write_signature_for_zokrates_cli
+
+def read_witness_values(file_path):
+    # JSON 파일에서 값 읽기
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    return [int(x) for x in data]
+
+def write_signature_for_zokrates_cli(sig, msg, path):
+    "Writes the input arguments for verifyEddsa in the ZoKrates stdlib to file."
+    sig_R, sig_S = sig
+    args = [sig_R.x, sig_R.y, sig_S]
+    args = " ".join(map(str, args))
+
+    with open(path, "w+") as file:
+        for l in args:
+            file.write(l)
+
+if __name__ == "__main__":
+    # 사용자 입력을 받음
+    raw_msg = read_witness_values('./witness_values.json')
+    # 각 정수를 4바이트 바이트로 변환하고 하나의 바이트 배열로 합침
+    msg_bytes = b''.join(int.to_bytes(x, length=4, byteorder='big', signed=False) for x in raw_msg)
+    # print(msg_bytes)
+
+    # Seeded for debug purpose
+    key = FQ(1997011358982923168928344992199991480689546837621580239342656433234255379025)
+    sk = PrivateKey(key)
+    sig = sk.sign(msg_bytes)
+    
+    pk = PublicKey.from_private(sk)
+    # is_verified = pk.verify(sig, msg_bytes)
+    # print(is_verified)
+
+    write_signature_for_zokrates_cli(sig, msg_bytes, 'signature')
+
+
+    with open('pk', "w+") as file:
+        for l in [str(pk.p.x.n)," ", str(pk.p.y.n)]:
+            print(l)
+            file.write(l)"#).expect("Failed to write create_signature.py");
+
+    // 이후 단계: ZoKrates 도구를 사용하여 컴파일 등의 작업 수행
+    // 예: ZoKrates 컴파일 명령 실행
     let compile_status = Command::new("zokrates")
         .current_dir("./zok/issuer") // 작업 디렉토리 설정
         .arg("compile")
         .arg("-i")
-        .arg("create_hash.zok")
+        .arg("../create_hash.zok")
         .status() // 명령어 실행
         .expect("Failed to execute zokrates compile");
     assert!(compile_status.success()); // 컴파일 성공 확인
@@ -211,18 +304,28 @@ fn load_zokrates_witness() -> Vec<String> {
 }
 
 // Witness 값 로드, Python 스크립트 실행하여 서명 및 공개키 생성, 파일 이동까지 포함하는 함수
-fn create_and_issue_signature(credential_id: &str, signature_save_path: &str) {
+pub fn create_credential(
+    credential_id: &str,
+    name: &str,
+    age: u8,
+    student_number: &str,
+    department: &str,
+    signature_save_path: &str,
+) {
+    create_claim(credential_id, name, age, student_number, department);
+    create_witness_for_eddsa_signature_memo(credential_id);
     // Witness 값 로드
     let witness_values = load_zokrates_witness(); // 이 함수의 구현체는 제공되지 않았으므로 가정
 
     // Witness 값을 JSON 파일로 저장
     let witness_file_path = "./zok/issuer/witness_values.json";
     let mut file = File::create(witness_file_path).expect("Unable to create witness file");
-    let witness_json = serde_json::to_string(&witness_values).expect("Unable to serialize witness values");
+    let witness_json =
+        serde_json::to_string(&witness_values).expect("Unable to serialize witness values");
     writeln!(file, "{}", witness_json).expect("Unable to write witness values");
 
     // Python 스크립트 실행하여 서명 및 공개키 생성
-    let output = Command::new("python3")
+    let output = Command::new("./myvenv/bin/python3")
         .current_dir("./zok/issuer")
         .arg("create_signature.py")
         .output()
@@ -230,33 +333,44 @@ fn create_and_issue_signature(credential_id: &str, signature_save_path: &str) {
     assert!(output.status.success(), "Python script execution failed");
 
     // 파일 이동 (signature 및 credential.json)
-    let files_to_move = ["signature", &format!("credential.json")];
-    for &file_name in &files_to_move {
-        let source_path = format!("./zok/issuer/{}/{}", credential_id, file_name);
-        let destination_path = format!("{}/{}", signature_save_path, file_name);
+    let file_name = "credential.json";
+    let source_path = format!("./zok/issuer/{}/{}", credential_id, file_name);
+    let destination_path = format!("{}/{}", signature_save_path, file_name);
 
-        fs::rename(&source_path, &destination_path)
-            .expect(&format!("Failed to move {} to {}", source_path, destination_path));
-    }
+    fs::rename(&source_path, &destination_path).expect(&format!(
+        "Failed to move {} to {}",
+        source_path, destination_path
+    ));
+    println!("File moved to: {}", destination_path);
+    let file_name = "signature";
+    let source_path = format!("./zok/issuer/{}", file_name);
+    let destination_path = format!("{}/{}", signature_save_path, file_name);
+
+    fs::rename(&source_path, &destination_path).expect(&format!(
+        "Failed to move {} to {}",
+        source_path, destination_path
+    ));
+    println!("File moved to: {}", destination_path);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
-    fn create_credential_test() {
-        create_credential("3732", "Socrates", 30, "201902769", "Information Security");
+    fn setup_test() {
+        setup();
     }
 
     #[test]
-    fn compile_create_hash_zok_test() {
-        compile_create_hash_zok();
-    }
-
-    #[test]
-    fn create_signature_test() {
-        create_witness_for_eddsa_signature_memo("3732");
-        create_and_issue_signature("3732", "./zok/prover");
+    fn create_claim_test() {
+        create_credential(
+            "3732",
+            "Socrates",
+            30,
+            "201902769",
+            "Information Security",
+            "./zok/prover",
+        );
     }
 }

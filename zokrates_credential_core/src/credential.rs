@@ -15,9 +15,9 @@ pub struct Claims {
     #[serde(rename = "type")]
     pub credential_type: Vec<String>,
     pub issuer: CredentialIssuer,
-    pub issuance_date: DateTime<Utc>,          // 변경됨
-    pub credential_subject: CredentialSubject, // 변경됨
-    pub exp: i64,                              // `exp` 클레임 추가
+    pub issuance_date: DateTime<Utc>,
+    pub credential_subject: CredentialSubject,
+    pub exp: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
