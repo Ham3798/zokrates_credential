@@ -1,67 +1,98 @@
-// (Full example with detailed comments in examples/01d_quick_example.rs)
-//
-// This example demonstrates clap's full 'custom derive' style of creating arguments which is the
-// simplest method of use, but sacrifices some flexibility.
-use clap::{AppSettings, Parser};
+use std::process;
 
-/// This doc string acts as a help message when the user runs '--help'
-/// as do all doc strings on fields
-#[derive(Parser)]
-#[clap(version = "1.0", author = "Kevin K. <kbknapp@gmail.com>")]
-struct Opts {
-    /// Sets a custom config file. Could have been an Option<T> with no default too
-    #[clap(short, long, default_value = "default.conf")]
-    config: String,
-    /// Some input. Because this isn't an Option<T> it's required to be used
-    input: String,
-    /// A level of verbosity, and can be used multiple times
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: i32,
-    #[clap(subcommand)]
-    subcmd: SubCommand,
-}
-
-#[derive(Parser)]
-enum SubCommand {
-    #[clap(version = "1.3", author = "Someone E. <someone_else@other.com>")]
-    Test(Test),
-}
-
-/// A subcommand for controlling testing
-#[derive(Parser)]
-struct Test {
-    /// Print debug info
-    #[clap(short)]
-    debug: bool
-}
-
+use clap::{App, Arg, SubCommand};
+use zokrates_credential_core::issuer::{create_credential, setup};
 fn main() {
-    let opts: Opts = Opts::parse();
+    let matches = App::new("ZoKrates Credential Issuer")
+        .version("1.0")
+        .author("ham3798 <5023798@naver.com>")
+        .about("Manages credentials with ZoKrates")
+        .subcommand(
+            SubCommand::with_name("issuer")
+                .about("Issues credentials")
+                .subcommand(
+                    SubCommand::with_name("create_credential")
+                        .about("Creates a new credential")
+                        .arg(
+                            Arg::with_name("credential_id")
+                                .help("The ID of the credential")
+                                .required(true)
+                                .index(1),
+                        )
+                        .arg(
+                            Arg::with_name("name")
+                                .help("Name of the credential owner")
+                                .required(true)
+                                .index(2),
+                        )
+                        .arg(
+                            Arg::with_name("age")
+                                .help("Age of the credential owner")
+                                .required(true)
+                                .index(3),
+                        )
+                        .arg(
+                            Arg::with_name("student_number")
+                                .help("Student number of the credential owner")
+                                .required(true)
+                                .index(4),
+                        )
+                        .arg(
+                            Arg::with_name("department")
+                                .help("Department of the credential owner")
+                                .required(true)
+                                .index(5),
+                        )
+                        .arg(
+                            Arg::with_name("signature_save_path")
+                                .help("Path to save the signature")
+                                .required(true)
+                                .index(6),
+                        ),
+                )
+                .subcommand(
+                    SubCommand::with_name("setup")
+                        .about("Performs setup operations for the issuer"),
+                ),
+        )
+        .get_matches();
+    if let Some(matches) = matches.subcommand_matches("issuer") {
+        if let Some(create_matches) = matches.subcommand_matches("create_credential") {
+            // 인자 추출은 이제 create_matches를 사용
+            let credential_id = create_matches
+                .value_of("credential_id")
+                .expect("Missing credential_id");
+            println!("Credential ID: {:?}", credential_id); // 이제 올바른 위치에 있음
 
-    // Gets a value for config if supplied by user, or defaults to "default.conf"
-    println!("Value for config: {}", opts.config);
-    println!("Using input file: {}", opts.input);
+            let name = create_matches.value_of("name").expect("Missing name");
+            let age = create_matches
+                .value_of("age")
+                .expect("Missing age")
+                .parse::<u8>()
+                .expect("Age must be a number");
+            let student_number = create_matches
+                .value_of("student_number")
+                .expect("Missing student_number");
+            let department = create_matches
+                .value_of("department")
+                .expect("Missing department");
+            let signature_save_path = create_matches
+                .value_of("signature_save_path")
+                .expect("Missing signature_save_path");
 
-    // Vary the output based on how many times the user used the "verbose" flag
-    // (i.e. 'myprog -v -v -v' or 'myprog -vvv' vs 'myprog -v'
-    match opts.verbose {
-        0 => println!("No verbose info"),
-        1 => println!("Some verbose info"),
-        2 => println!("Tons of verbose info"),
-        _ => println!("Don't be ridiculous"),
-    }
-
-    // You can handle information about subcommands by requesting their matches by name
-    // (as below), requesting just the name used, or both at the same time
-    match opts.subcmd {
-        SubCommand::Test(t) => {
-            if t.debug {
-                println!("Printing debug info...");
-            } else {
-                println!("Printing normally...");
-            }
+            create_credential(
+                credential_id,
+                name,
+                age,
+                student_number,
+                department,
+                signature_save_path,
+            );
+        } else if matches.subcommand_matches("setup").is_some() {
+            setup();
         }
+    } else {
+        eprintln!("Invalid command");
+        process::exit(1);
     }
-
-    // more program logic goes here...
 }
