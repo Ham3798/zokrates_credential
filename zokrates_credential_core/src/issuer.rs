@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File},
     io::{BufReader, Write},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 pub fn create_claim(
@@ -163,8 +163,11 @@ pub fn setup() {
         .status()
         .expect("Failed to create virtual environment");
 
-    assert!(venv_creation.success(), "Virtual environment creation failed");
-    
+    assert!(
+        venv_creation.success(),
+        "Virtual environment creation failed"
+    );
+
     // `./zok/issuer/myvenv` 가상 환경에 'zokrates_pycrypto' 패키지 설치
     let pip_install = Command::new("./myvenv/bin/pip")
         .args(&["install", "zokrates_pycrypto"])

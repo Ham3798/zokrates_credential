@@ -1,12 +1,20 @@
+use crate::field::Fq;
 use lazy_static::lazy_static;
+use num_bigint::BigInt;
 use num_traits::Num;
 use std::ops::Add;
-use num_bigint::BigInt;
-use crate::field::Fq;
 
 lazy_static! {
-    pub static ref JUBJUB_Q: BigInt = BigInt::from_str_radix("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10).unwrap();
-    pub static ref JUBJUB_E: BigInt = BigInt::from_str_radix("21888242871839275222246405745257275088614511777268538073601725287587578984328", 10).unwrap();
+    pub static ref JUBJUB_Q: BigInt = BigInt::from_str_radix(
+        "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        10
+    )
+    .unwrap();
+    pub static ref JUBJUB_E: BigInt = BigInt::from_str_radix(
+        "21888242871839275222246405745257275088614511777268538073601725287587578984328",
+        10
+    )
+    .unwrap();
     pub static ref JUBJUB_C: BigInt = BigInt::from(8u32);
     pub static ref JUBJUB_L: BigInt = (&*JUBJUB_E) / (&*JUBJUB_C);
     pub static ref JUBJUB_A: BigInt = BigInt::from(168700u32);
@@ -21,8 +29,14 @@ pub struct Point {
 
 impl Point {
     pub fn is_valid(&self) -> bool {
-        let lhs = Fq::new(JUBJUB_A.clone()) * self.x.clone() * self.x.clone() + self.y.clone() * self.y.clone();
-        let rhs = Fq::one() + Fq::new(JUBJUB_D.clone()) * self.x.clone() * self.x.clone() * self.y.clone() * self.y.clone();
+        let lhs = Fq::new(JUBJUB_A.clone()) * self.x.clone() * self.x.clone()
+            + self.y.clone() * self.y.clone();
+        let rhs = Fq::one()
+            + Fq::new(JUBJUB_D.clone())
+                * self.x.clone()
+                * self.x.clone()
+                * self.y.clone()
+                * self.y.clone();
         lhs == rhs
     }
 
@@ -39,7 +53,7 @@ impl Point {
             y: Fq::new(BigInt::parse_bytes(b"20819045374670962167435360035096875258406992893633759881276124905556507972311", 10).unwrap()),
         }
     }
-    
+
     pub fn scalar_mul(&self, scalar: &BigInt) -> Self {
         let mut result = Self::infinity(); // 무한대 포인트로 시작
         let mut base = self.clone();
@@ -63,7 +77,6 @@ impl Point {
             y: Fq::one(),
         }
     }
-    
 }
 
 impl Add for Point {
@@ -81,8 +94,26 @@ impl Add for Point {
         let u2 = other.x;
         let v2 = other.y;
 
-        let u3 = (u1.clone() * v2.clone() + v1.clone() * u2.clone()) / (Fq::one() + Fq{ n: JUBJUB_D.clone() } * u1.clone() * u2.clone() * v1.clone() * v2.clone());
-        let v3 = (v1.clone() * v2.clone() - Fq{ n: JUBJUB_A.clone() } * u1.clone() * u2.clone()) / (Fq::one() - Fq{ n: JUBJUB_D.clone() } * u1 * u2 * v1 * v2);
+        let u3 = (u1.clone() * v2.clone() + v1.clone() * u2.clone())
+            / (Fq::one()
+                + Fq {
+                    n: JUBJUB_D.clone(),
+                } * u1.clone()
+                    * u2.clone()
+                    * v1.clone()
+                    * v2.clone());
+        let v3 = (v1.clone() * v2.clone()
+            - Fq {
+                n: JUBJUB_A.clone(),
+            } * u1.clone()
+                * u2.clone())
+            / (Fq::one()
+                - Fq {
+                    n: JUBJUB_D.clone(),
+                } * u1
+                    * u2
+                    * v1
+                    * v2);
         Self { x: u3, y: v3 }
     }
 }
@@ -90,8 +121,8 @@ impl Add for Point {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::BigInt;
     use crate::field::Fq;
+    use num_bigint::BigInt;
 
     fn point_g() -> Point {
         Point::generator()
@@ -128,8 +159,20 @@ mod tests {
     #[test]
     fn test_lower_order_p() {
         let lp = Point {
-            x: Fq::new(BigInt::parse_bytes(b"4342719913949491028786768530115087822524712248835451589697801404893164183326", 10).unwrap()),
-            y: Fq::new(BigInt::parse_bytes(b"4826523245007015323400664741523384119579596407052839571721035538011798951543", 10).unwrap()),
+            x: Fq::new(
+                BigInt::parse_bytes(
+                    b"4342719913949491028786768530115087822524712248835451589697801404893164183326",
+                    10,
+                )
+                .unwrap(),
+            ),
+            y: Fq::new(
+                BigInt::parse_bytes(
+                    b"4826523245007015323400664741523384119579596407052839571721035538011798951543",
+                    10,
+                )
+                .unwrap(),
+            ),
         };
         let lp_c = lp.scalar_mul(&*JUBJUB_C);
         assert_eq!(lp_c, Point::infinity());
@@ -140,4 +183,3 @@ mod tests {
     // Additional tests like test_multiplicative, test_associativity, and test_identities
     // would follow a similar pattern, adapting the Python logic to Rust's syntax and your crate's API.
 }
-
