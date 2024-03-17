@@ -87,8 +87,6 @@ cd zokrates_credential
 ```
 - Build the CLI using cargo build --release.
 ```bash
-git clone https://github.com/Ham3798/zokrates_credential.git
-cd zokrates_credential
 cargo build --release
 ```
 - Optionally, add the path to the zokrates_credential_cli executable to your system's PATH environment variable for easier access.
