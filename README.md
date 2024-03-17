@@ -38,6 +38,26 @@ zokrates_credential
 - **zokrates_credential_core**: Contains the Rust modules that implement the core functionality of the credential system.
 - **zokrates_crypto**: migrating the zokrates_pycrypto Library used for generating and verifying signatures. (ongoing)
 
+## Setup Instructions
+- Install ZoKrates according to the official documentation.
+```bash
+curl -LSfs get.zokrat.es | sh
+```
+- Clone this repository and navigate into the project directory.
+```bash
+git clone https://github.com/Ham3798/zokrates_credential.git
+cd zokrates_credential
+```
+- Build the CLI using cargo build --release.
+```bash
+cargo build --release
+```
+- Optionally, add the path to the zokrates_credential_cli executable to your system's PATH environment variable for easier access.
+```bash
+export PATH=$PATH:/path/to/your/project/target/release
+alias zokrates_credential='zokrates_credential_cli'
+```
+
 ## CLI Usage
 The `zokrates_credential_cli` provides a convenient way to access the core functionalities:
 
@@ -75,25 +95,6 @@ To export a verifier smart contract:
 zokrates_credential verifier get_verify_contract <destination_path>
 ```
 
-## Setup Instructions
-- Install ZoKrates according to the official documentation.
-```bash
-curl -LSfs get.zokrat.es | sh
-```
-- Clone this repository and navigate into the project directory.
-```bash
-git clone https://github.com/Ham3798/zokrates_credential.git
-cd zokrates_credential
-```
-- Build the CLI using cargo build --release.
-```bash
-cargo build --release
-```
-- Optionally, add the path to the zokrates_credential_cli executable to your system's PATH environment variable for easier access.
-```bash
-export PATH=$PATH:/path/to/your/project/target/release
-alias zokrates_credential='zokrates_credential_cli'
-```
 ## Key Management
 The issuer's public and private keys are currently managed within the create_signature.py script. For debug purposes, the key is seeded with a specific value as shown below:
 
