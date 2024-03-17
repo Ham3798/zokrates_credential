@@ -104,6 +104,18 @@ key = FQ(19970113589829231689283449921999914806895468376215802393426564332342553
 ```
 This approach is used for demonstration and testing. In a real-world application, it's crucial to handle private keys securely, ensuring they are not hard-coded or exposed in your application code.
 
+## Updating and Redeploying on Credential Format Changes
+If the format of the credential changes, it is crucial to update and redeploy the following components to ensure the system correctly processes the new credential structure:
+
+- **ZoKrates Programs**:
+  - `zokrates_credential_core/zok/create_hash.zok`: Responsible for creating a hash of the credential details. Changes in the credential's structure should be reflected in how this program processes and hashes the credential information.
+  - `zokrates_credential_core/zok/verify_credential.zok`: Verifies the credential's authenticity and integrity. Modifications to the credential's format necessitate updates to this program for accurate verification.
+
+- **Python Script**:
+  - `zokrates_credential_core/zok/create_signature.py`: Generates a digital signature for the serialized credential. Adjustments in the credential format might require changes in the serialization process and, consequently, in how the signature is created.
+
+- **Rust Module**:
+  - `zokrates_credential_core/src/credential.rs` in the `zokrates_credential_core`: Contains the data structures and logic related to credentials. Any changes to the credential format must be updated here to ensure the internal representations match the new structure.
 
 ## Example
 ```bash
