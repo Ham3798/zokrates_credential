@@ -1,10 +1,9 @@
-[package]
-name = "zokrates_credential"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    "zokrates_credential_cli",
+    "zokrates_credential_core",
+]
 
-[dependencies]
-serde = {version = "1.0", features = ["derive"] }
-chrono = { version = "0.4", features = ["serde"] }
-serde_json = "1.0"
-sha2 = "0.10"
+[profile.dev]
+opt-level = 1

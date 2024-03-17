@@ -5,10 +5,14 @@ use num_bigint::BigInt;
 use num_traits::{One, Zero};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-const FIELD_MODULUS: &str = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
+const FIELD_MODULUS: &str =
+    "21888242871839275222246405745257275088548364400416034343698204186575808495617";
 
 fn inv(a: &BigInt) -> BigInt {
-    a.modpow(&(-BigInt::one()), &BigInt::parse_bytes(FIELD_MODULUS.as_bytes(), 10).unwrap())
+    a.modpow(
+        &(-BigInt::one()),
+        &BigInt::parse_bytes(FIELD_MODULUS.as_bytes(), 10).unwrap(),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +26,7 @@ impl Fq {
         let n = val.into() % &modulus;
         Fq { n }
     }
-    
+
     pub fn one() -> Fq {
         Fq::new(BigInt::one())
     }
